@@ -1,19 +1,24 @@
 (() => {
   const ROOT_ID = "cgpt-nav-root";
   const PANEL_ID = "cgpt-nav-panel";
-  const STORAGE_KEY = `cgpt-nav:${location.pathname}`;
   const HOTKEY_CODE = "KeyP"; // Alt+P toggles panel
   const MAX_PREVIEW = 110;
+  const PANEL_MARGIN = 8;
 
   const state = {
     collapsed: false,
     filter: "",
     prompts: [],
     elementsById: new Map(),
+    position: null,
     mutationObserver: null,
     scanTimer: null,
     initialized: false,
   };
+
+  function getStorageKey() {
+    return `cgpt-nav:${location.pathname}`;
+  }
 
   function truncate(text, max = MAX_PREVIEW) {
     const normalized = String(text || "").replace(/\s+/g, " ").trim();
@@ -156,13 +161,49 @@
     if (!root) return null;
 
     const panel = root.querySelector(`#${PANEL_ID}`);
+    const header = root.querySelector("#cgpt-nav-header");
     const toggleBtn = root.querySelector("#cgpt-nav-toggle");
     const input = root.querySelector("#cgpt-nav-input");
     const list = root.querySelector("#cgpt-nav-list");
     const empty = root.querySelector("#cgpt-nav-empty");
-    if (!(panel && toggleBtn && input && list && empty)) return null;
+    if (!(panel && header && toggleBtn && input && list && empty)) return null;
 
-    return { root, panel, toggleBtn, input, list, empty };
+    return { root, panel, header, toggleBtn, input, list, empty };
+  }
+
+  function clamp(num, min, max) {
+    return Math.min(max, Math.max(min, num));
+  }
+
+  function clampPosition(x, y, root) {
+    const rect = root.getBoundingClientRect();
+    const maxX = Math.max(PANEL_MARGIN, window.innerWidth - rect.width - PANEL_MARGIN);
+    const maxY = Math.max(PANEL_MARGIN, window.innerHeight - rect.height - PANEL_MARGIN);
+
+    return {
+      x: clamp(x, PANEL_MARGIN, maxX),
+      y: clamp(y, PANEL_MARGIN, maxY),
+    };
+  }
+
+  function applyPosition() {
+    const ui = getUi();
+    if (!ui) return;
+
+    if (!state.position) {
+      ui.root.style.left = "";
+      ui.root.style.top = "";
+      ui.root.style.right = "16px";
+      ui.root.style.bottom = "";
+      return;
+    }
+
+    const clamped = clampPosition(state.position.x, state.position.y, ui.root);
+    state.position = clamped;
+    ui.root.style.left = `${clamped.x}px`;
+    ui.root.style.top = `${clamped.y}px`;
+    ui.root.style.right = "auto";
+    ui.root.style.bottom = "auto";
   }
 
   function updatePanelState() {
@@ -207,18 +248,75 @@
   }
 
   async function saveUiState() {
-    await storageSet(STORAGE_KEY, {
+    await storageSet(getStorageKey(), {
       collapsed: state.collapsed,
       filter: state.filter,
+      position: state.position,
     });
   }
 
   async function loadUiState() {
-    const saved = await storageGet(STORAGE_KEY);
+    const saved = await storageGet(getStorageKey());
     if (saved && typeof saved === "object") {
       state.collapsed = Boolean(saved.collapsed);
       state.filter = typeof saved.filter === "string" ? saved.filter : "";
+      if (
+        saved.position &&
+        typeof saved.position === "object" &&
+        Number.isFinite(saved.position.x) &&
+        Number.isFinite(saved.position.y)
+      ) {
+        state.position = { x: saved.position.x, y: saved.position.y };
+      } else {
+        state.position = null;
+      }
+    } else {
+      state.position = null;
     }
+  }
+
+  function installDragging(ui) {
+    let dragState = null;
+
+    const endDrag = async () => {
+      if (!dragState) return;
+      dragState = null;
+      ui.panel.removeAttribute("data-dragging");
+      await saveUiState();
+    };
+
+    ui.header.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0) return;
+      const target = event.target instanceof HTMLElement ? event.target : null;
+      if (target?.closest("#cgpt-nav-toggle")) return;
+
+      const rect = ui.root.getBoundingClientRect();
+      dragState = {
+        pointerId: event.pointerId,
+        offsetX: event.clientX - rect.left,
+        offsetY: event.clientY - rect.top,
+      };
+      ui.panel.setAttribute("data-dragging", "true");
+      ui.header.setPointerCapture(event.pointerId);
+      event.preventDefault();
+    });
+
+    ui.header.addEventListener("pointermove", (event) => {
+      if (!dragState || event.pointerId !== dragState.pointerId) return;
+      const next = clampPosition(event.clientX - dragState.offsetX, event.clientY - dragState.offsetY, ui.root);
+      state.position = next;
+      applyPosition();
+    });
+
+    ui.header.addEventListener("pointerup", (event) => {
+      if (!dragState || event.pointerId !== dragState.pointerId) return;
+      void endDrag();
+    });
+
+    ui.header.addEventListener("pointercancel", (event) => {
+      if (!dragState || event.pointerId !== dragState.pointerId) return;
+      void endDrag();
+    });
   }
 
   function installUI() {
@@ -245,6 +343,7 @@
     if (!ui) return;
 
     ui.input.value = state.filter;
+    installDragging(ui);
 
     ui.toggleBtn.addEventListener("click", async () => {
       state.collapsed = !state.collapsed;
@@ -269,6 +368,12 @@
       event.preventDefault();
     });
 
+    window.addEventListener("resize", () => {
+      if (!state.position) return;
+      applyPosition();
+    });
+
+    applyPosition();
     updatePanelState();
     renderList();
   }
@@ -323,6 +428,7 @@
       if (ui) {
         ui.input.value = state.filter;
       }
+      applyPosition();
       updatePanelState();
       rebuildPrompts();
     }, 1000);

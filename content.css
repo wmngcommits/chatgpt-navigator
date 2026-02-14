@@ -46,6 +46,13 @@
   gap: 8px;
   padding: 10px 12px;
   border-bottom: 1px solid rgba(127, 127, 127, 0.25);
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+
+#cgpt-nav-panel[data-dragging="true"] #cgpt-nav-header {
+  cursor: grabbing;
 }
 
 #cgpt-nav-title {
