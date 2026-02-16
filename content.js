@@ -4,6 +4,37 @@
   const HOTKEY_CODE = "KeyP"; // Alt+P toggles panel
   const MAX_PREVIEW = 110;
   const PANEL_MARGIN = 8;
+  const Core = globalThis.CGPTNavCore || {
+    normalizePromptText(text) {
+      return String(text || "").replace(/\s+/g, " ").trim();
+    },
+    truncateText(text, max) {
+      const limit = Number.isFinite(max) ? max : 110;
+      const normalized = String(text || "").replace(/\s+/g, " ").trim();
+      if (normalized.length <= limit) return normalized;
+      return `${normalized.slice(0, limit - 1)}\u2026`;
+    },
+    filterPrompts(prompts, query) {
+      const items = Array.isArray(prompts) ? prompts : [];
+      const q = String(query || "").trim().toLowerCase();
+      if (!q) return items;
+      return items.filter((prompt) => String(prompt?.fullText || "").toLowerCase().includes(q));
+    },
+    normalizeSelectedPromptId(filteredPrompts, selectedPromptId) {
+      const items = Array.isArray(filteredPrompts) ? filteredPrompts : [];
+      if (items.length === 0) return null;
+      return items.some((prompt) => prompt?.id === selectedPromptId) ? selectedPromptId : items[0].id;
+    },
+    getNextSelectedPromptId(filteredPrompts, selectedPromptId, delta) {
+      const items = Array.isArray(filteredPrompts) ? filteredPrompts : [];
+      if (items.length === 0) return null;
+      const direction = Number.isFinite(delta) ? delta : 0;
+      const currentIndex = items.findIndex((prompt) => prompt?.id === selectedPromptId);
+      const startIndex = currentIndex >= 0 ? currentIndex : 0;
+      const nextIndex = (startIndex + direction + items.length) % items.length;
+      return items[nextIndex].id;
+    },
+  };
 
   const state = {
     collapsed: false,
@@ -22,12 +53,6 @@
 
   function getStorageKey() {
     return `cgpt-nav:${location.pathname}`;
-  }
-
-  function truncate(text, max = MAX_PREVIEW) {
-    const normalized = String(text || "").replace(/\s+/g, " ").trim();
-    if (normalized.length <= max) return normalized;
-    return `${normalized.slice(0, max - 1)}\u2026`;
   }
 
   function getStorageApi() {
@@ -125,7 +150,7 @@
 
     for (const turnEl of candidates) {
       if (!isLikelyUserTurn(turnEl)) continue;
-      const fullText = (extractPromptText(turnEl) || "").replace(/\s+/g, " ").trim();
+      const fullText = Core.normalizePromptText(extractPromptText(turnEl) || "");
       if (!fullText) continue;
 
       let id = state.elementToPromptId.get(turnEl);
@@ -137,7 +162,7 @@
       prompts.push({
         id,
         fullText,
-        preview: truncate(fullText),
+        preview: Core.truncateText(fullText, MAX_PREVIEW),
       });
       elementsById.set(id, turnEl);
     }
@@ -222,39 +247,16 @@
   }
 
   function getFilteredPrompts() {
-    const q = state.filter.trim().toLowerCase();
-    if (!q) return state.prompts;
-    return state.prompts.filter((p) => p.fullText.toLowerCase().includes(q));
+    return Core.filterPrompts(state.prompts, state.filter);
   }
 
   function normalizeSelection(filtered) {
-    if (filtered.length === 0) {
-      state.selectedPromptId = null;
-      return;
-    }
-    const exists = filtered.some((prompt) => prompt.id === state.selectedPromptId);
-    if (!exists) {
-      state.selectedPromptId = filtered[0].id;
-    }
-  }
-
-  function getSelectedIndex(filtered) {
-    if (!state.selectedPromptId) return -1;
-    return filtered.findIndex((prompt) => prompt.id === state.selectedPromptId);
+    state.selectedPromptId = Core.normalizeSelectedPromptId(filtered, state.selectedPromptId);
   }
 
   function selectByDelta(delta) {
     const filtered = getFilteredPrompts();
-    if (filtered.length === 0) {
-      state.selectedPromptId = null;
-      renderList();
-      return;
-    }
-
-    const currentIndex = getSelectedIndex(filtered);
-    const start = currentIndex >= 0 ? currentIndex : 0;
-    const nextIndex = (start + delta + filtered.length) % filtered.length;
-    state.selectedPromptId = filtered[nextIndex].id;
+    state.selectedPromptId = Core.getNextSelectedPromptId(filtered, state.selectedPromptId, delta);
     renderList();
   }
 

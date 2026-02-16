@@ -20,8 +20,10 @@ Chrome extension page: https://chromewebstore.google.com/detail/chatgpt-prompt-n
 ## Files
 
 - `manifest.json`: MV3 config + content script registration.
+- `navigator-core.js`: shared core logic for truncation, filtering, and selection.
 - `content.js`: DOM parsing, overlay UI, observer, storage, navigation.
 - `content.css`: overlay styling and highlight animation.
+- `tests/navigator-core.test.js`: unit tests for core logic.
 
 ## Load in Chrome
 
@@ -35,3 +37,7 @@ Chrome extension page: https://chromewebstore.google.com/detail/chatgpt-prompt-n
 
 - ChatGPT DOM can drift. Selectors are intentionally defensive and observer-driven.
 - Side Panel API is not included in this MVP (overlay implementation only).
+
+## Tests
+
+- Run unit tests with: `npm test`

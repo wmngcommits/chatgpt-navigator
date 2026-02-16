@@ -1,0 +1,8 @@
+{
+  "name": "chatgpt-prompt-navigator",
+  "version": "0.1.1",
+  "private": true,
+  "scripts": {
+    "test": "node --test"
+  }
+}
