@@ -4,6 +4,8 @@ Chrome extension (Manifest V3) that adds a prompt navigation overlay to ChatGPT 
 
 Chrome extension page: https://chromewebstore.google.com/detail/chatgpt-prompt-navigator/fjlkbfimekpejkncabppmepdagondhlf
 
+Changelog: `CHANGELOG.md`
+
 ## Features
 
 - Runs on:
