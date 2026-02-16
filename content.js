@@ -10,6 +10,7 @@
     filter: "",
     prompts: [],
     elementsById: new Map(),
+    selectedPromptId: null,
     position: null,
     mutationObserver: null,
     scanTimer: null,
@@ -219,11 +220,55 @@
     return state.prompts.filter((p) => p.fullText.toLowerCase().includes(q));
   }
 
+  function normalizeSelection(filtered) {
+    if (filtered.length === 0) {
+      state.selectedPromptId = null;
+      return;
+    }
+    const exists = filtered.some((prompt) => prompt.id === state.selectedPromptId);
+    if (!exists) {
+      state.selectedPromptId = filtered[0].id;
+    }
+  }
+
+  function getSelectedIndex(filtered) {
+    if (!state.selectedPromptId) return -1;
+    return filtered.findIndex((prompt) => prompt.id === state.selectedPromptId);
+  }
+
+  function selectByDelta(delta) {
+    const filtered = getFilteredPrompts();
+    if (filtered.length === 0) {
+      state.selectedPromptId = null;
+      renderList();
+      return;
+    }
+
+    const currentIndex = getSelectedIndex(filtered);
+    const start = currentIndex >= 0 ? currentIndex : 0;
+    const nextIndex = (start + delta + filtered.length) % filtered.length;
+    state.selectedPromptId = filtered[nextIndex].id;
+    renderList();
+  }
+
+  function triggerSelectedPrompt() {
+    if (!state.selectedPromptId) return;
+    onPromptClick(state.selectedPromptId);
+  }
+
+  function isEditableTarget(target) {
+    if (!(target instanceof HTMLElement)) return false;
+    if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) return true;
+    if (target.isContentEditable) return true;
+    return target.getAttribute("role") === "textbox";
+  }
+
   function renderList() {
     const ui = getUi();
     if (!ui) return;
 
     const filtered = getFilteredPrompts();
+    normalizeSelection(filtered);
     ui.list.textContent = "";
 
     if (filtered.length === 0) {
@@ -239,11 +284,22 @@
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "cgpt-nav-item";
+      btn.setAttribute("data-prompt-id", prompt.id);
+      btn.setAttribute("data-selected", String(prompt.id === state.selectedPromptId));
       btn.title = prompt.fullText;
       btn.textContent = prompt.preview;
-      btn.addEventListener("click", () => onPromptClick(prompt.id));
+      btn.addEventListener("click", () => {
+        state.selectedPromptId = prompt.id;
+        onPromptClick(prompt.id);
+        renderList();
+      });
       li.appendChild(btn);
       ui.list.appendChild(li);
+    }
+
+    const selectedButton = ui.list.querySelector('[data-selected="true"]');
+    if (selectedButton instanceof HTMLElement) {
+      selectedButton.scrollIntoView({ block: "nearest" });
     }
   }
 
@@ -359,13 +415,74 @@
     });
 
     document.addEventListener("keydown", async (event) => {
-      if (!(event.altKey && event.code === HOTKEY_CODE)) return;
-      if (event.repeat) return;
+      if (event.altKey && event.code === HOTKEY_CODE) {
+        if (event.repeat) return;
+        state.collapsed = !state.collapsed;
+        updatePanelState();
+        await saveUiState();
+        event.preventDefault();
+        return;
+      }
 
-      state.collapsed = !state.collapsed;
-      updatePanelState();
-      await saveUiState();
-      event.preventDefault();
+      const uiRef = getUi();
+      if (!uiRef || state.collapsed) return;
+
+      const target = event.target instanceof HTMLElement ? event.target : null;
+      const isTargetEditable = target ? isEditableTarget(target) : false;
+      const inPanel = target ? uiRef.root.contains(target) : false;
+      const activeInPanel = document.activeElement instanceof HTMLElement ? uiRef.root.contains(document.activeElement) : false;
+
+      // Focus prompt filter quickly from anywhere that is not an editable field.
+      if (
+        event.key === "/" &&
+        !event.metaKey &&
+        !event.ctrlKey &&
+        !event.altKey &&
+        !event.shiftKey &&
+        !isTargetEditable
+      ) {
+        uiRef.input.focus();
+        uiRef.input.select();
+        event.preventDefault();
+        return;
+      }
+
+      if (!(inPanel || activeInPanel)) return;
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+
+      if (event.key === "ArrowDown") {
+        selectByDelta(1);
+        event.preventDefault();
+        return;
+      }
+
+      if (event.key === "ArrowUp") {
+        selectByDelta(-1);
+        event.preventDefault();
+        return;
+      }
+
+      if (event.key === "Enter") {
+        triggerSelectedPrompt();
+        event.preventDefault();
+        return;
+      }
+
+      if (event.key === "Escape") {
+        if (state.filter) {
+          state.filter = "";
+          uiRef.input.value = "";
+          renderList();
+          await saveUiState();
+          event.preventDefault();
+          return;
+        }
+
+        state.collapsed = true;
+        updatePanelState();
+        await saveUiState();
+        event.preventDefault();
+      }
     });
 
     window.addEventListener("resize", () => {

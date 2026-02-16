@@ -118,6 +118,11 @@
   outline: none;
 }
 
+.cgpt-nav-item[data-selected="true"] {
+  border-color: rgba(47, 114, 255, 0.9);
+  background: rgba(47, 114, 255, 0.12);
+}
+
 #cgpt-nav-empty {
   font-size: 12px;
   opacity: 0.8;
