@@ -11,6 +11,7 @@
     prompts: [],
     elementsById: new Map(),
     selectedPromptId: null,
+    keyboardModeArmed: false,
     position: null,
     mutationObserver: null,
     scanTimer: null,
@@ -400,6 +401,7 @@
 
     ui.input.value = state.filter;
     installDragging(ui);
+    state.keyboardModeArmed = true;
 
     ui.toggleBtn.addEventListener("click", async () => {
       state.collapsed = !state.collapsed;
@@ -412,6 +414,21 @@
       state.filter = value;
       renderList();
       await saveUiState();
+    });
+
+    ui.root.addEventListener("pointerdown", () => {
+      state.keyboardModeArmed = true;
+    });
+
+    ui.input.addEventListener("focus", () => {
+      state.keyboardModeArmed = true;
+    });
+
+    document.addEventListener("pointerdown", (event) => {
+      const target = event.target instanceof HTMLElement ? event.target : null;
+      if (!target) return;
+      if (ui.root.contains(target)) return;
+      state.keyboardModeArmed = false;
     });
 
     document.addEventListener("keydown", async (event) => {
@@ -431,6 +448,7 @@
       const isTargetEditable = target ? isEditableTarget(target) : false;
       const inPanel = target ? uiRef.root.contains(target) : false;
       const activeInPanel = document.activeElement instanceof HTMLElement ? uiRef.root.contains(document.activeElement) : false;
+      const canUseArmedMode = state.keyboardModeArmed && !isTargetEditable;
 
       // Focus prompt filter quickly from anywhere that is not an editable field.
       if (
@@ -441,13 +459,14 @@
         !event.shiftKey &&
         !isTargetEditable
       ) {
+        state.keyboardModeArmed = true;
         uiRef.input.focus();
         uiRef.input.select();
         event.preventDefault();
         return;
       }
 
-      if (!(inPanel || activeInPanel)) return;
+      if (!(inPanel || activeInPanel || canUseArmedMode)) return;
       if (event.metaKey || event.ctrlKey || event.altKey) return;
 
       if (event.key === "ArrowDown") {
