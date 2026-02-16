@@ -10,6 +10,8 @@
     filter: "",
     prompts: [],
     elementsById: new Map(),
+    elementToPromptId: new WeakMap(),
+    nextPromptId: 0,
     selectedPromptId: null,
     keyboardModeArmed: false,
     position: null,
@@ -121,13 +123,17 @@
     const prompts = [];
     const elementsById = new Map();
 
-    let index = 0;
     for (const turnEl of candidates) {
       if (!isLikelyUserTurn(turnEl)) continue;
       const fullText = (extractPromptText(turnEl) || "").replace(/\s+/g, " ").trim();
       if (!fullText) continue;
 
-      const id = `turn-${index++}`;
+      let id = state.elementToPromptId.get(turnEl);
+      if (!id) {
+        id = `turn-${state.nextPromptId++}`;
+        state.elementToPromptId.set(turnEl, id);
+      }
+
       prompts.push({
         id,
         fullText,
