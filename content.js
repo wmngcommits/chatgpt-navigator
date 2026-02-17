@@ -226,9 +226,18 @@
       elementsById.set(id, turnEl);
     }
 
+    const promptsChanged =
+      prompts.length !== state.prompts.length ||
+      prompts.some((prompt, idx) => {
+        const current = state.prompts[idx];
+        return !current || current.id !== prompt.id || current.fullText !== prompt.fullText || current.preview !== prompt.preview;
+      });
+
     state.prompts = prompts;
     state.elementsById = elementsById;
-    renderList();
+    if (promptsChanged) {
+      renderList();
+    }
   }
 
   function flashElement(el) {
@@ -241,8 +250,36 @@
     }, 1300);
   }
 
-  function onPromptClick(id) {
-    const el = state.elementsById.get(id);
+  function findElementForPrompt(id, fullText) {
+    let el = state.elementsById.get(id);
+    if (el instanceof HTMLElement && el.isConnected) return el;
+
+    if (fullText) {
+      const exactMatch = state.prompts.find((prompt) => prompt.fullText === fullText);
+      if (exactMatch) {
+        el = state.elementsById.get(exactMatch.id);
+        if (el instanceof HTMLElement && el.isConnected) return el;
+      }
+    }
+
+    // One synchronous resync can recover from transient SPA re-renders.
+    rebuildPrompts();
+    el = state.elementsById.get(id);
+    if (el instanceof HTMLElement && el.isConnected) return el;
+
+    if (fullText) {
+      const exactMatchAfterResync = state.prompts.find((prompt) => prompt.fullText === fullText);
+      if (exactMatchAfterResync) {
+        el = state.elementsById.get(exactMatchAfterResync.id);
+        if (el instanceof HTMLElement && el.isConnected) return el;
+      }
+    }
+
+    return null;
+  }
+
+  function onPromptClick(id, fullText = "") {
+    const el = findElementForPrompt(id, fullText);
     if (!el) return;
     el.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" });
     flashElement(el);
@@ -321,7 +358,8 @@
 
   function triggerSelectedPrompt() {
     if (!state.selectedPromptId) return;
-    onPromptClick(state.selectedPromptId);
+    const selectedPrompt = state.prompts.find((prompt) => prompt.id === state.selectedPromptId);
+    onPromptClick(state.selectedPromptId, selectedPrompt?.fullText || "");
   }
 
   function isEditableTarget(target) {
@@ -358,7 +396,7 @@
       btn.textContent = prompt.preview;
       btn.addEventListener("click", () => {
         state.selectedPromptId = prompt.id;
-        onPromptClick(prompt.id);
+        onPromptClick(prompt.id, prompt.fullText);
         renderList();
       });
       li.appendChild(btn);
