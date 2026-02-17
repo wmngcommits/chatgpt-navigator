@@ -76,6 +76,20 @@
 
       return null;
     },
+    hasPromptListChanged(previousPrompts, nextPrompts) {
+      const prev = Array.isArray(previousPrompts) ? previousPrompts : [];
+      const next = Array.isArray(nextPrompts) ? nextPrompts : [];
+      if (prev.length !== next.length) return true;
+      for (let i = 0; i < next.length; i += 1) {
+        const a = prev[i];
+        const b = next[i];
+        if (!a || !b) return true;
+        if (a.id !== b.id || a.fullText !== b.fullText || a.preview !== b.preview) {
+          return true;
+        }
+      }
+      return false;
+    },
   };
 
   const state = {
@@ -226,12 +240,7 @@
       elementsById.set(id, turnEl);
     }
 
-    const promptsChanged =
-      prompts.length !== state.prompts.length ||
-      prompts.some((prompt, idx) => {
-        const current = state.prompts[idx];
-        return !current || current.id !== prompt.id || current.fullText !== prompt.fullText || current.preview !== prompt.preview;
-      });
+    const promptsChanged = Core.hasPromptListChanged(state.prompts, prompts);
 
     state.prompts = prompts;
     state.elementsById = elementsById;

@@ -78,6 +78,22 @@
     return null;
   }
 
+  function hasPromptListChanged(previousPrompts, nextPrompts) {
+    const prev = Array.isArray(previousPrompts) ? previousPrompts : [];
+    const next = Array.isArray(nextPrompts) ? nextPrompts : [];
+
+    if (prev.length !== next.length) return true;
+    for (let i = 0; i < next.length; i += 1) {
+      const a = prev[i];
+      const b = next[i];
+      if (!a || !b) return true;
+      if (a.id !== b.id || a.fullText !== b.fullText || a.preview !== b.preview) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   const api = {
     normalizePromptText,
     truncateText,
@@ -85,6 +101,7 @@
     normalizeSelectedPromptId,
     getNextSelectedPromptId,
     getKeyboardAction,
+    hasPromptListChanged,
   };
 
   global.CGPTNavCore = api;

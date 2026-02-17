@@ -7,6 +7,7 @@ const {
   filterPrompts,
   normalizeSelectedPromptId,
   getNextSelectedPromptId,
+  hasPromptListChanged,
 } = require("../navigator-core.js");
 
 test("normalizePromptText collapses whitespace and trims", () => {
@@ -67,4 +68,43 @@ test("getNextSelectedPromptId starts from first item when selection missing", ()
 
 test("getNextSelectedPromptId returns null for empty list", () => {
   assert.equal(getNextSelectedPromptId([], "a", 1), null);
+});
+
+test("hasPromptListChanged returns false when prompt list is identical", () => {
+  const prev = [
+    { id: "a", fullText: "alpha", preview: "alpha" },
+    { id: "b", fullText: "beta", preview: "beta" },
+  ];
+  const next = [
+    { id: "a", fullText: "alpha", preview: "alpha" },
+    { id: "b", fullText: "beta", preview: "beta" },
+  ];
+  assert.equal(hasPromptListChanged(prev, next), false);
+});
+
+test("hasPromptListChanged returns true when length changes", () => {
+  const prev = [{ id: "a", fullText: "alpha", preview: "alpha" }];
+  const next = [
+    { id: "a", fullText: "alpha", preview: "alpha" },
+    { id: "b", fullText: "beta", preview: "beta" },
+  ];
+  assert.equal(hasPromptListChanged(prev, next), true);
+});
+
+test("hasPromptListChanged returns true when prompt order changes", () => {
+  const prev = [
+    { id: "a", fullText: "alpha", preview: "alpha" },
+    { id: "b", fullText: "beta", preview: "beta" },
+  ];
+  const next = [
+    { id: "b", fullText: "beta", preview: "beta" },
+    { id: "a", fullText: "alpha", preview: "alpha" },
+  ];
+  assert.equal(hasPromptListChanged(prev, next), true);
+});
+
+test("hasPromptListChanged returns true when fullText changes", () => {
+  const prev = [{ id: "a", fullText: "alpha", preview: "alpha" }];
+  const next = [{ id: "a", fullText: "alpha updated", preview: "alpha updated" }];
+  assert.equal(hasPromptListChanged(prev, next), true);
 });
