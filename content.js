@@ -21,6 +21,8 @@
     mutationObserver: null,
     scanTimer: null,
     initialized: false,
+    copiedPromptId: null,
+    copiedResetTimer: null,
   };
 
   function getStorageKey() {
@@ -307,6 +309,47 @@
     return target.getAttribute("role") === "textbox";
   }
 
+  function resetCopiedStateSoon() {
+    if (state.copiedResetTimer !== null) {
+      window.clearTimeout(state.copiedResetTimer);
+    }
+    state.copiedResetTimer = window.setTimeout(() => {
+      state.copiedPromptId = null;
+      state.copiedResetTimer = null;
+      renderList();
+    }, 1200);
+  }
+
+  async function copyText(text) {
+    const value = String(text || "");
+    if (!value) return false;
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(value);
+        return true;
+      }
+    } catch (_err) {
+      // fall through to execCommand fallback
+    }
+
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = value;
+      ta.setAttribute("readonly", "");
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      ta.style.left = "-9999px";
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand("copy");
+      document.body.removeChild(ta);
+      return ok;
+    } catch (_err) {
+      return false;
+    }
+  }
+
   function renderList() {
     const ui = getUi();
     if (!ui) return;
@@ -325,6 +368,7 @@
 
     for (const prompt of filtered) {
       const li = document.createElement("li");
+      li.className = "cgpt-nav-row";
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "cgpt-nav-item";
@@ -337,7 +381,22 @@
         onPromptClick(prompt.id, prompt.fullText);
         renderList();
       });
+      const copyBtn = document.createElement("button");
+      copyBtn.type = "button";
+      copyBtn.className = "cgpt-nav-copy";
+      copyBtn.textContent = state.copiedPromptId === prompt.id ? "Copied" : "Copy";
+      copyBtn.title = "Copy full prompt";
+      copyBtn.addEventListener("click", async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const ok = await copyText(prompt.fullText);
+        if (!ok) return;
+        state.copiedPromptId = prompt.id;
+        renderList();
+        resetCopiedStateSoon();
+      });
       li.appendChild(btn);
+      li.appendChild(copyBtn);
       ui.list.appendChild(li);
     }
 

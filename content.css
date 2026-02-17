@@ -98,6 +98,13 @@
   gap: 4px;
 }
 
+.cgpt-nav-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px;
+  align-items: stretch;
+}
+
 .cgpt-nav-item {
   display: block;
   width: 100%;
@@ -121,6 +128,23 @@
 .cgpt-nav-item[data-selected="true"] {
   border-color: rgba(47, 114, 255, 0.9);
   background: rgba(47, 114, 255, 0.12);
+}
+
+.cgpt-nav-copy {
+  border: 1px solid rgba(127, 127, 127, 0.3);
+  border-radius: 8px;
+  padding: 0 8px;
+  min-width: 54px;
+  background: transparent;
+  color: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.cgpt-nav-copy:hover,
+.cgpt-nav-copy:focus-visible {
+  border-color: rgba(47, 114, 255, 0.8);
+  outline: none;
 }
 
 #cgpt-nav-empty {
