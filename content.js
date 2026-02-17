@@ -1,7 +1,6 @@
 (() => {
   const ROOT_ID = "cgpt-nav-root";
   const PANEL_ID = "cgpt-nav-panel";
-  const HOTKEY_CODE = "KeyP"; // Alt+P toggles panel
   const MAX_PREVIEW = 110;
   const PANEL_MARGIN = 8;
   const Core = globalThis.CGPTNavCore || {
@@ -33,6 +32,49 @@
       const startIndex = currentIndex >= 0 ? currentIndex : 0;
       const nextIndex = (startIndex + direction + items.length) % items.length;
       return items[nextIndex].id;
+    },
+    getKeyboardAction(input) {
+      const data = input && typeof input === "object" ? input : {};
+      const key = data.key || "";
+      const code = data.code || "";
+      const isRepeat = Boolean(data.repeat);
+      const altKey = Boolean(data.altKey);
+      const ctrlKey = Boolean(data.ctrlKey);
+      const metaKey = Boolean(data.metaKey);
+      const shiftKey = Boolean(data.shiftKey);
+      const isCollapsed = Boolean(data.isCollapsed);
+      const isTargetEditable = Boolean(data.isTargetEditable);
+      const inPanel = Boolean(data.inPanel);
+      const activeInPanel = Boolean(data.activeInPanel);
+      const keyboardModeArmed = Boolean(data.keyboardModeArmed);
+      const hasFilter = Boolean(data.hasFilter);
+
+      if (altKey && code === "KeyP") {
+        if (isRepeat) return null;
+        return { type: "toggle_panel" };
+      }
+
+      if (isCollapsed) return null;
+
+      if (!metaKey && !ctrlKey && !altKey && !shiftKey && key === "/" && !isTargetEditable) {
+        return { type: "focus_filter" };
+      }
+
+      const canUseArmedMode = keyboardModeArmed && !isTargetEditable;
+      if (!(inPanel || activeInPanel || canUseArmedMode)) return null;
+
+      if (metaKey || ctrlKey || altKey) return null;
+
+      if (key === "ArrowDown") return { type: "move_selection", delta: 1 };
+      if (key === "ArrowUp") return { type: "move_selection", delta: -1 };
+      if (key === "Enter") return { type: "trigger_selected" };
+
+      if (key === "Escape") {
+        if (hasFilter) return { type: "clear_filter" };
+        return { type: "collapse_panel" };
+      }
+
+      return null;
     },
   };
 
@@ -440,8 +482,31 @@
     });
 
     document.addEventListener("keydown", async (event) => {
-      if (event.altKey && event.code === HOTKEY_CODE) {
-        if (event.repeat) return;
+      const uiRef = getUi();
+      if (!uiRef) return;
+
+      const target = event.target instanceof HTMLElement ? event.target : null;
+      const isTargetEditable = target ? isEditableTarget(target) : false;
+      const inPanel = target ? uiRef.root.contains(target) : false;
+      const activeInPanel = document.activeElement instanceof HTMLElement ? uiRef.root.contains(document.activeElement) : false;
+      const action = Core.getKeyboardAction({
+        key: event.key,
+        code: event.code,
+        repeat: event.repeat,
+        altKey: event.altKey,
+        ctrlKey: event.ctrlKey,
+        metaKey: event.metaKey,
+        shiftKey: event.shiftKey,
+        isCollapsed: state.collapsed,
+        isTargetEditable,
+        inPanel,
+        activeInPanel,
+        keyboardModeArmed: state.keyboardModeArmed,
+        hasFilter: Boolean(state.filter),
+      });
+      if (!action) return;
+
+      if (action.type === "toggle_panel") {
         state.collapsed = !state.collapsed;
         updatePanelState();
         await saveUiState();
@@ -449,24 +514,7 @@
         return;
       }
 
-      const uiRef = getUi();
-      if (!uiRef || state.collapsed) return;
-
-      const target = event.target instanceof HTMLElement ? event.target : null;
-      const isTargetEditable = target ? isEditableTarget(target) : false;
-      const inPanel = target ? uiRef.root.contains(target) : false;
-      const activeInPanel = document.activeElement instanceof HTMLElement ? uiRef.root.contains(document.activeElement) : false;
-      const canUseArmedMode = state.keyboardModeArmed && !isTargetEditable;
-
-      // Focus prompt filter quickly from anywhere that is not an editable field.
-      if (
-        event.key === "/" &&
-        !event.metaKey &&
-        !event.ctrlKey &&
-        !event.altKey &&
-        !event.shiftKey &&
-        !isTargetEditable
-      ) {
+      if (action.type === "focus_filter") {
         state.keyboardModeArmed = true;
         uiRef.input.focus();
         uiRef.input.select();
@@ -474,37 +522,28 @@
         return;
       }
 
-      if (!(inPanel || activeInPanel || canUseArmedMode)) return;
-      if (event.metaKey || event.ctrlKey || event.altKey) return;
-
-      if (event.key === "ArrowDown") {
-        selectByDelta(1);
+      if (action.type === "move_selection") {
+        selectByDelta(action.delta);
         event.preventDefault();
         return;
       }
 
-      if (event.key === "ArrowUp") {
-        selectByDelta(-1);
-        event.preventDefault();
-        return;
-      }
-
-      if (event.key === "Enter") {
+      if (action.type === "trigger_selected") {
         triggerSelectedPrompt();
         event.preventDefault();
         return;
       }
 
-      if (event.key === "Escape") {
-        if (state.filter) {
-          state.filter = "";
-          uiRef.input.value = "";
-          renderList();
-          await saveUiState();
-          event.preventDefault();
-          return;
-        }
+      if (action.type === "clear_filter") {
+        state.filter = "";
+        uiRef.input.value = "";
+        renderList();
+        await saveUiState();
+        event.preventDefault();
+        return;
+      }
 
+      if (action.type === "collapse_panel") {
         state.collapsed = true;
         updatePanelState();
         await saveUiState();
