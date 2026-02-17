@@ -112,7 +112,18 @@
     const api = getStorageApi();
     if (!api) return Promise.resolve(undefined);
     return new Promise((resolve) => {
-      api.get([key], (res) => resolve(res?.[key]));
+      try {
+        api.get([key], (res) => {
+          const err = typeof chrome !== "undefined" ? chrome.runtime?.lastError : null;
+          if (err) {
+            resolve(undefined);
+            return;
+          }
+          resolve(res?.[key]);
+        });
+      } catch (_err) {
+        resolve(undefined);
+      }
     });
   }
 
@@ -120,7 +131,13 @@
     const api = getStorageApi();
     if (!api) return Promise.resolve();
     return new Promise((resolve) => {
-      api.set({ [key]: value }, () => resolve());
+      try {
+        api.set({ [key]: value }, () => {
+          resolve();
+        });
+      } catch (_err) {
+        resolve();
+      }
     });
   }
 
