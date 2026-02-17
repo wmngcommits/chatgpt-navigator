@@ -44,12 +44,16 @@
     return new Promise((resolve) => {
       try {
         api.get([key], (res) => {
-          const err = typeof chrome !== "undefined" ? chrome.runtime?.lastError : null;
-          if (err) {
+          try {
+            const err = typeof chrome !== "undefined" ? chrome.runtime?.lastError : null;
+            if (err) {
+              resolve(undefined);
+              return;
+            }
+            resolve(res?.[key]);
+          } catch (_err) {
             resolve(undefined);
-            return;
           }
-          resolve(res?.[key]);
         });
       } catch (_err) {
         resolve(undefined);
@@ -63,7 +67,16 @@
     return new Promise((resolve) => {
       try {
         api.set({ [key]: value }, () => {
-          resolve();
+          try {
+            const err = typeof chrome !== "undefined" ? chrome.runtime?.lastError : null;
+            if (err) {
+              resolve();
+              return;
+            }
+            resolve();
+          } catch (_err) {
+            resolve();
+          }
         });
       } catch (_err) {
         resolve();
