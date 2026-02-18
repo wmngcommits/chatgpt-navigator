@@ -316,7 +316,7 @@
     state.copiedResetTimer = window.setTimeout(() => {
       state.copiedPromptId = null;
       state.copiedResetTimer = null;
-      renderList();
+      updateCopyVisual();
     }, 1200);
   }
 
@@ -354,6 +354,7 @@
       const copyBtn = document.createElement("button");
       copyBtn.type = "button";
       copyBtn.className = "cgpt-nav-copy";
+      copyBtn.setAttribute("data-copy-id", prompt.id);
       copyBtn.textContent = state.copiedPromptId === prompt.id ? "Copied" : "Copy";
       copyBtn.title = "Copy full prompt";
       copyBtn.addEventListener("click", async (event) => {
@@ -362,7 +363,7 @@
         const ok = await Core.copyTextWithFallback(prompt.fullText);
         if (!ok) return;
         state.copiedPromptId = prompt.id;
-        renderList();
+        updateCopyVisual();
         resetCopiedStateSoon();
       });
       li.appendChild(btn);
@@ -384,6 +385,18 @@
       if (!(node instanceof HTMLElement)) continue;
       const id = node.getAttribute("data-prompt-id");
       node.setAttribute("data-selected", String(id === state.selectedPromptId));
+    }
+  }
+
+  function updateCopyVisual() {
+    const ui = getUi();
+    if (!ui) return;
+    const buttons = ui.list.querySelectorAll(".cgpt-nav-copy[data-copy-id]");
+    for (const node of buttons) {
+      if (!(node instanceof HTMLButtonElement)) continue;
+      const id = node.getAttribute("data-copy-id");
+      const copied = id === state.copiedPromptId;
+      node.textContent = copied ? "Copied" : "Copy";
     }
   }
 
