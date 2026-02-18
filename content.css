@@ -139,12 +139,21 @@
   color: inherit;
   font-size: 11px;
   cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
 }
 
 .cgpt-nav-copy:hover,
 .cgpt-nav-copy:focus-visible {
   border-color: rgba(47, 114, 255, 0.8);
   outline: none;
+}
+
+.cgpt-nav-row:hover .cgpt-nav-copy,
+.cgpt-nav-row:focus-within .cgpt-nav-copy {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 #cgpt-nav-empty {
