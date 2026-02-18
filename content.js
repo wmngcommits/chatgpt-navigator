@@ -349,7 +349,7 @@
       btn.addEventListener("click", () => {
         state.selectedPromptId = prompt.id;
         onPromptClick(prompt.id, prompt.fullText);
-        renderList();
+        updateSelectedVisual();
       });
       const copyBtn = document.createElement("button");
       copyBtn.type = "button";
@@ -373,6 +373,17 @@
     const selectedButton = ui.list.querySelector('[data-selected="true"]');
     if (selectedButton instanceof HTMLElement) {
       selectedButton.scrollIntoView({ block: "nearest" });
+    }
+  }
+
+  function updateSelectedVisual() {
+    const ui = getUi();
+    if (!ui) return;
+    const buttons = ui.list.querySelectorAll(".cgpt-nav-item[data-prompt-id]");
+    for (const node of buttons) {
+      if (!(node instanceof HTMLElement)) continue;
+      const id = node.getAttribute("data-prompt-id");
+      node.setAttribute("data-selected", String(id === state.selectedPromptId));
     }
   }
 
