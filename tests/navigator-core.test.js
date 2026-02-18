@@ -8,6 +8,7 @@ const {
   normalizeSelectedPromptId,
   getNextSelectedPromptId,
   hasPromptListChanged,
+  copyTextWithFallback,
 } = require("../navigator-core.js");
 
 test("normalizePromptText collapses whitespace and trims", () => {
@@ -107,4 +108,46 @@ test("hasPromptListChanged returns true when fullText changes", () => {
   const prev = [{ id: "a", fullText: "alpha", preview: "alpha" }];
   const next = [{ id: "a", fullText: "alpha updated", preview: "alpha updated" }];
   assert.equal(hasPromptListChanged(prev, next), true);
+});
+
+test("copyTextWithFallback returns false for empty text", async () => {
+  const ok = await copyTextWithFallback("");
+  assert.equal(ok, false);
+});
+
+test("copyTextWithFallback uses clipboard writer when available", async () => {
+  const calls = [];
+  const ok = await copyTextWithFallback("hello", {
+    writeText: async (value) => {
+      calls.push(value);
+    },
+    execCopy: () => false,
+  });
+  assert.equal(ok, true);
+  assert.deepEqual(calls, ["hello"]);
+});
+
+test("copyTextWithFallback falls back to execCopy when clipboard write fails", async () => {
+  const calls = [];
+  const ok = await copyTextWithFallback("hello", {
+    writeText: async () => {
+      throw new Error("write failed");
+    },
+    execCopy: (value) => {
+      calls.push(value);
+      return true;
+    },
+  });
+  assert.equal(ok, true);
+  assert.deepEqual(calls, ["hello"]);
+});
+
+test("copyTextWithFallback returns false when clipboard and fallback fail", async () => {
+  const ok = await copyTextWithFallback("hello", {
+    writeText: async () => {
+      throw new Error("write failed");
+    },
+    execCopy: () => false,
+  });
+  assert.equal(ok, false);
 });

@@ -320,36 +320,6 @@
     }, 1200);
   }
 
-  async function copyText(text) {
-    const value = String(text || "");
-    if (!value) return false;
-
-    try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(value);
-        return true;
-      }
-    } catch (_err) {
-      // fall through to execCommand fallback
-    }
-
-    try {
-      const ta = document.createElement("textarea");
-      ta.value = value;
-      ta.setAttribute("readonly", "");
-      ta.style.position = "fixed";
-      ta.style.opacity = "0";
-      ta.style.left = "-9999px";
-      document.body.appendChild(ta);
-      ta.select();
-      const ok = document.execCommand("copy");
-      document.body.removeChild(ta);
-      return ok;
-    } catch (_err) {
-      return false;
-    }
-  }
-
   function renderList() {
     const ui = getUi();
     if (!ui) return;
@@ -389,7 +359,7 @@
       copyBtn.addEventListener("click", async (event) => {
         event.preventDefault();
         event.stopPropagation();
-        const ok = await copyText(prompt.fullText);
+        const ok = await Core.copyTextWithFallback(prompt.fullText);
         if (!ok) return;
         state.copiedPromptId = prompt.id;
         renderList();

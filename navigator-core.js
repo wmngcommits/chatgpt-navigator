@@ -94,6 +94,54 @@
     return false;
   }
 
+  async function copyTextWithFallback(text, deps) {
+    const value = String(text || "");
+    if (!value) return false;
+
+    const api = deps && typeof deps === "object" ? deps : {};
+    const writeText =
+      typeof api.writeText === "function"
+        ? api.writeText
+        : async (nextValue) => {
+            if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+              await navigator.clipboard.writeText(nextValue);
+              return;
+            }
+            throw new Error("Clipboard API unavailable");
+          };
+
+    try {
+      await writeText(value);
+      return true;
+    } catch (_err) {
+      // fall through to execCommand fallback
+    }
+
+    const execCopy =
+      typeof api.execCopy === "function"
+        ? api.execCopy
+        : (nextValue) => {
+            if (typeof document === "undefined") return false;
+            const ta = document.createElement("textarea");
+            ta.value = nextValue;
+            ta.setAttribute("readonly", "");
+            ta.style.position = "fixed";
+            ta.style.opacity = "0";
+            ta.style.left = "-9999px";
+            document.body.appendChild(ta);
+            ta.select();
+            const ok = document.execCommand("copy");
+            document.body.removeChild(ta);
+            return ok;
+          };
+
+    try {
+      return Boolean(execCopy(value));
+    } catch (_err) {
+      return false;
+    }
+  }
+
   const api = {
     normalizePromptText,
     truncateText,
@@ -102,6 +150,7 @@
     getNextSelectedPromptId,
     getKeyboardAction,
     hasPromptListChanged,
+    copyTextWithFallback,
   };
 
   global.CGPTNavCore = api;
