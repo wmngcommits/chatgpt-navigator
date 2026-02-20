@@ -100,7 +100,7 @@
 
 .cgpt-nav-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 0;
+  grid-template-columns: minmax(0, 1fr) 0 0;
   column-gap: 0;
   align-items: stretch;
   transition: grid-template-columns 120ms ease, column-gap 120ms ease;
@@ -146,8 +146,29 @@
   transition: opacity 120ms ease;
 }
 
+.cgpt-nav-pin {
+  width: 54px;
+  border: 1px solid rgba(127, 127, 127, 0.3);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: transparent;
+  color: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+
 .cgpt-nav-copy:hover,
 .cgpt-nav-copy:focus-visible {
+  border-color: rgba(47, 114, 255, 0.8);
+  outline: none;
+}
+
+.cgpt-nav-pin:hover,
+.cgpt-nav-pin:focus-visible {
   border-color: rgba(47, 114, 255, 0.8);
   outline: none;
 }
@@ -159,10 +180,26 @@
   pointer-events: auto;
 }
 
+.cgpt-nav-row:hover .cgpt-nav-pin,
+.cgpt-nav-row:focus-within .cgpt-nav-pin {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
 .cgpt-nav-row:hover,
 .cgpt-nav-row:focus-within {
-  grid-template-columns: minmax(0, 1fr) 54px;
+  grid-template-columns: minmax(0, 1fr) 54px 54px;
   column-gap: 6px;
+}
+
+.cgpt-nav-section {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  opacity: 0.8;
+  padding: 6px 2px 2px;
+  text-transform: uppercase;
 }
 
 #cgpt-nav-empty {

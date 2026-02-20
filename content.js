@@ -23,6 +23,7 @@
     initialized: false,
     copiedPromptId: null,
     copiedResetTimer: null,
+    pinnedPromptIds: [],
   };
 
   function getStorageKey() {
@@ -172,10 +173,14 @@
     }
 
     const promptsChanged = Core.hasPromptListChanged(state.prompts, prompts);
+    const validIds = new Set(prompts.map((p) => p.id));
+    const nextPinnedPromptIds = state.pinnedPromptIds.filter((id) => validIds.has(id));
+    const pinnedChanged = nextPinnedPromptIds.length !== state.pinnedPromptIds.length;
 
     state.prompts = prompts;
     state.elementsById = elementsById;
-    if (promptsChanged) {
+    state.pinnedPromptIds = nextPinnedPromptIds;
+    if (promptsChanged || pinnedChanged) {
       renderList();
     }
   }
@@ -286,13 +291,23 @@
     return Core.filterPrompts(state.prompts, state.filter);
   }
 
+  function getPinnedSplit(prompts) {
+    return Core.splitPinnedPrompts(prompts, state.pinnedPromptIds);
+  }
+
+  function getDisplayPrompts() {
+    const filtered = getFilteredPrompts();
+    const { pinned, unpinned } = getPinnedSplit(filtered);
+    return [...pinned, ...unpinned];
+  }
+
   function normalizeSelection(filtered) {
     state.selectedPromptId = Core.normalizeSelectedPromptId(filtered, state.selectedPromptId);
   }
 
   function selectByDelta(delta) {
-    const filtered = getFilteredPrompts();
-    state.selectedPromptId = Core.getNextSelectedPromptId(filtered, state.selectedPromptId, delta);
+    const display = getDisplayPrompts();
+    state.selectedPromptId = Core.getNextSelectedPromptId(display, state.selectedPromptId, delta);
     renderList();
   }
 
@@ -325,10 +340,12 @@
     if (!ui) return;
 
     const filtered = getFilteredPrompts();
-    normalizeSelection(filtered);
+    const { pinned, unpinned } = getPinnedSplit(filtered);
+    const display = [...pinned, ...unpinned];
+    normalizeSelection(display);
     ui.list.textContent = "";
 
-    if (filtered.length === 0) {
+    if (display.length === 0) {
       ui.empty.style.display = "block";
       ui.empty.textContent = state.prompts.length === 0 ? "No prompts found yet." : "No prompts match your filter.";
       return;
@@ -336,7 +353,17 @@
 
     ui.empty.style.display = "none";
 
-    for (const prompt of filtered) {
+    const renderSection = (prompts, title = "") => {
+      if (prompts.length === 0) return;
+
+      if (title) {
+        const section = document.createElement("li");
+        section.className = "cgpt-nav-section";
+        section.textContent = title;
+        ui.list.appendChild(section);
+      }
+
+      for (const prompt of prompts) {
       const li = document.createElement("li");
       li.className = "cgpt-nav-row";
       const btn = document.createElement("button");
@@ -350,6 +377,25 @@
         state.selectedPromptId = prompt.id;
         onPromptClick(prompt.id, prompt.fullText);
         updateSelectedVisual();
+      });
+      const pinBtn = document.createElement("button");
+      pinBtn.type = "button";
+      pinBtn.className = "cgpt-nav-pin";
+      pinBtn.setAttribute("data-pin-id", prompt.id);
+      pinBtn.textContent = state.pinnedPromptIds.includes(prompt.id) ? "Unpin" : "Pin";
+      pinBtn.title = state.pinnedPromptIds.includes(prompt.id) ? "Remove from pinned" : "Pin to top";
+      pinBtn.addEventListener("click", async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const pinned = new Set(state.pinnedPromptIds);
+        if (pinned.has(prompt.id)) {
+          pinned.delete(prompt.id);
+        } else {
+          pinned.add(prompt.id);
+        }
+        state.pinnedPromptIds = Array.from(pinned);
+        renderList();
+        await saveUiState();
       });
       const copyBtn = document.createElement("button");
       copyBtn.type = "button";
@@ -367,11 +413,16 @@
         resetCopiedStateSoon();
       });
       li.appendChild(btn);
+      li.appendChild(pinBtn);
       li.appendChild(copyBtn);
       ui.list.appendChild(li);
-    }
+      }
+    };
 
-    const selectedButton = ui.list.querySelector('[data-selected="true"]');
+    renderSection(pinned, "Pinned");
+    renderSection(unpinned);
+
+    const selectedButton = ui.list.querySelector('.cgpt-nav-item[data-selected="true"]');
     if (selectedButton instanceof HTMLElement) {
       selectedButton.scrollIntoView({ block: "nearest" });
     }
@@ -405,6 +456,7 @@
       collapsed: state.collapsed,
       filter: state.filter,
       position: state.position,
+      pinnedPromptIds: state.pinnedPromptIds,
     });
   }
 
@@ -423,8 +475,12 @@
       } else {
         state.position = null;
       }
+      state.pinnedPromptIds = Array.isArray(saved.pinnedPromptIds)
+        ? saved.pinnedPromptIds.filter((id) => typeof id === "string")
+        : [];
     } else {
       state.position = null;
+      state.pinnedPromptIds = [];
     }
   }
 

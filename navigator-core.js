@@ -94,6 +94,23 @@
     return false;
   }
 
+  function splitPinnedPrompts(prompts, pinnedIds) {
+    const items = Array.isArray(prompts) ? prompts : [];
+    const pinSet = new Set(Array.isArray(pinnedIds) ? pinnedIds : []);
+    const pinned = [];
+    const unpinned = [];
+
+    for (const prompt of items) {
+      if (pinSet.has(prompt?.id)) {
+        pinned.push(prompt);
+      } else {
+        unpinned.push(prompt);
+      }
+    }
+
+    return { pinned, unpinned };
+  }
+
   async function copyTextWithFallback(text, deps) {
     const value = String(text || "");
     if (!value) return false;
@@ -150,6 +167,7 @@
     getNextSelectedPromptId,
     getKeyboardAction,
     hasPromptListChanged,
+    splitPinnedPrompts,
     copyTextWithFallback,
   };
 

@@ -8,6 +8,7 @@ const {
   normalizeSelectedPromptId,
   getNextSelectedPromptId,
   hasPromptListChanged,
+  splitPinnedPrompts,
   copyTextWithFallback,
 } = require("../navigator-core.js");
 
@@ -150,4 +151,32 @@ test("copyTextWithFallback returns false when clipboard and fallback fail", asyn
     execCopy: () => false,
   });
   assert.equal(ok, false);
+});
+
+test("splitPinnedPrompts keeps chronological order and separates pinned", () => {
+  const prompts = [
+    { id: "a", fullText: "one" },
+    { id: "b", fullText: "two" },
+    { id: "c", fullText: "three" },
+    { id: "d", fullText: "four" },
+  ];
+  const { pinned, unpinned } = splitPinnedPrompts(prompts, ["c", "a"]);
+  assert.deepEqual(
+    pinned.map((p) => p.id),
+    ["a", "c"]
+  );
+  assert.deepEqual(
+    unpinned.map((p) => p.id),
+    ["b", "d"]
+  );
+});
+
+test("splitPinnedPrompts returns empty pinned section when no pinned ids", () => {
+  const prompts = [
+    { id: "a", fullText: "one" },
+    { id: "b", fullText: "two" },
+  ];
+  const { pinned, unpinned } = splitPinnedPrompts(prompts, []);
+  assert.deepEqual(pinned, []);
+  assert.deepEqual(unpinned, prompts);
 });
