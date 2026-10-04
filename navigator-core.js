@@ -10,6 +10,34 @@
     return `${normalized.slice(0, limit - 1)}\u2026`;
   }
 
+  function collectUserPrompts(doc) {
+    if (!doc?.querySelectorAll) return [];
+
+    // The app shell keeps inactive conversations mounted alongside the open chat.
+    const root = doc.querySelector('[data-app-shell-active-page="true"]') || doc;
+    const candidates = root.querySelectorAll([
+      '[data-message-author-role="user"]',
+      '[data-chatgpt-search-unit-key$=":user"]',
+      '[data-content-search-unit-key$=":user"]',
+      '[data-user-message-bubble="true"]',
+    ].join(","));
+    const prompts = [];
+
+    for (const element of candidates) {
+      if (element.closest('[data-app-shell-active-page="false"], [hidden], [aria-hidden="true"]')) continue;
+      if (element.closest('[data-message-author-role]')?.getAttribute("data-message-author-role") === "assistant") continue;
+      // Several user markers can wrap the same bubble; keep one entry per message.
+      if (prompts.some((prompt) => prompt.element.contains(element))) continue;
+
+      const source = element.querySelector('[data-user-message-bubble="true"]') || element;
+      const fullText = normalizePromptText(source.innerText || source.textContent || "");
+      if (!fullText) continue;
+      prompts.push({ element, fullText });
+    }
+
+    return prompts;
+  }
+
   function filterPrompts(prompts, query) {
     const items = Array.isArray(prompts) ? prompts : [];
     const q = String(query || "").trim().toLowerCase();
@@ -162,6 +190,7 @@
   const api = {
     normalizePromptText,
     truncateText,
+    collectUserPrompts,
     filterPrompts,
     normalizeSelectedPromptId,
     getNextSelectedPromptId,

@@ -11,7 +11,8 @@ Changelog: `CHANGELOG.md`
 - Runs on:
   - `https://chatgpt.com/*`
   - `https://chat.openai.com/*`
-- Parses likely user turns defensively (role/data-testid/article fallbacks).
+- Detects user prompts using current message/search markers and legacy author-role attributes.
+- Indexes the active conversation and excludes inactive chats kept in the page DOM.
 - Builds a clickable list of your prompts (truncated to ~110 chars).
 - Optional filter input for quick search.
 - Collapse/expand button and hotkey (`Alt+P`).
@@ -22,10 +23,11 @@ Changelog: `CHANGELOG.md`
 ## Files
 
 - `manifest.json`: MV3 config + content script registration.
-- `navigator-core.js`: shared core logic for truncation, filtering, and selection.
+- `navigator-core.js`: shared logic for prompt detection, truncation, filtering, and selection.
 - `content.js`: DOM parsing, overlay UI, observer, storage, navigation.
 - `content.css`: overlay styling and highlight animation.
 - `tests/navigator-core.test.js`: unit tests for core logic.
+- `tests/prompt-detection.test.js`: DOM regression tests for current and legacy ChatGPT markup.
 
 ## Load in Chrome
 
@@ -42,4 +44,5 @@ Changelog: `CHANGELOG.md`
 
 ## Tests
 
-- Run unit tests with: `npm test`
+- Install development dependencies with `npm install`, then run tests with `npm test`.
+- The unpacked extension runs directly from this folder; no build step is required.

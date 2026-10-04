@@ -87,77 +87,12 @@
     });
   }
 
-  function getTurnCandidates() {
-    const selectors = [
-      '[data-message-author-role="user"]',
-      'article[data-testid*="conversation-turn"] [data-message-author-role="user"]',
-      'article[data-testid*="conversation-turn"][data-message-author-role="user"]',
-      'article[data-testid*="conversation-turn"]',
-      '[data-testid*="conversation-turn"]',
-      'main article',
-    ];
-
-    const results = [];
-    const seen = new Set();
-
-    for (const selector of selectors) {
-      const nodes = document.querySelectorAll(selector);
-      for (const node of nodes) {
-        const el = node instanceof HTMLElement ? node : null;
-        if (!el || seen.has(el)) continue;
-        seen.add(el);
-        results.push(el);
-      }
-      if (results.length > 0) {
-        break;
-      }
-    }
-
-    return results;
-  }
-
-  function isLikelyUserTurn(el) {
-    if (!(el instanceof HTMLElement)) return false;
-
-    const role = el.getAttribute("data-message-author-role");
-    if (role === "user") return true;
-    if (role && role !== "assistant") return true;
-
-    const roleDescendants = el.querySelector('[data-message-author-role="user"]');
-    if (roleDescendants) return true;
-
-    const text = (el.innerText || "").trim();
-    if (!text) return false;
-
-    if (el.matches("article") && text.length < 3000) {
-      // Weak fallback when explicit role attribute is absent.
-      return true;
-    }
-
-    return false;
-  }
-
-  function extractPromptText(turnEl) {
-    if (!(turnEl instanceof HTMLElement)) return "";
-
-    const roleNode = turnEl.matches('[data-message-author-role="user"]')
-      ? turnEl
-      : turnEl.querySelector('[data-message-author-role="user"]');
-
-    const source = roleNode instanceof HTMLElement ? roleNode : turnEl;
-    return source.innerText || "";
-  }
-
   function rebuildPrompts() {
-    const candidates = getTurnCandidates();
+    const candidates = Core.collectUserPrompts(document);
     const prompts = [];
     const elementsById = new Map();
 
-    for (const turnEl of candidates) {
-      if (!isLikelyUserTurn(turnEl)) continue;
-      const fullText = Core.normalizePromptText(extractPromptText(turnEl) || "");
-      if (!fullText) continue;
-
+    for (const { element: turnEl, fullText } of candidates) {
       let id = state.elementToPromptId.get(turnEl);
       if (!id) {
         id = `turn-${state.nextPromptId++}`;
@@ -664,13 +599,12 @@
   }
 
   function scheduleRebuild() {
-    if (state.scanTimer !== null) {
-      window.clearTimeout(state.scanTimer);
-    }
+    // Continuous streaming must not postpone indexing indefinitely.
+    if (state.scanTimer !== null) return;
 
     state.scanTimer = window.setTimeout(() => {
-      rebuildPrompts();
       state.scanTimer = null;
+      rebuildPrompts();
     }, 150);
   }
 
@@ -679,10 +613,10 @@
 
     state.mutationObserver = new MutationObserver((mutations) => {
       for (const mutation of mutations) {
-        if (mutation.type === "childList" || mutation.type === "characterData") {
-          scheduleRebuild();
-          return;
-        }
+        const target = mutation.target instanceof HTMLElement ? mutation.target : mutation.target.parentElement;
+        if (target?.closest(`#${ROOT_ID}`)) continue;
+        scheduleRebuild();
+        return;
       }
     });
 
@@ -690,6 +624,16 @@
       subtree: true,
       childList: true,
       characterData: true,
+      attributes: true,
+      attributeFilter: [
+        "data-app-shell-active-page",
+        "data-message-author-role",
+        "data-chatgpt-search-unit-key",
+        "data-content-search-unit-key",
+        "data-user-message-bubble",
+        "hidden",
+        "aria-hidden",
+      ],
     });
   }
 
